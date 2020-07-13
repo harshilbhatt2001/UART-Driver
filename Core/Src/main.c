@@ -28,6 +28,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>	//printf
+#include <stdlib.h> //malloc
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,7 +65,60 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-char rxBuffer[25];
+// TODO: Move queue code into different file.
+
+struct Queue
+{
+	int front, rear, size;
+	unsigned capacity;
+	int* array;
+};
+
+struct Queue* createQueue(unsigned capacity)
+{
+
+    struct Queue* rxBuffer = (struct Queue*)malloc(
+        sizeof(struct Queue));
+    rxBuffer->capacity = capacity;
+    rxBuffer->front = rxBuffer->size = 0;
+      rxBuffer->rear = capacity - 1;
+    rxBuffer->array = (int*)malloc(
+        rxBuffer->capacity * sizeof(int));
+    return rxBuffer;
+}
+
+int isFull(struct Queue* rxBuffer)
+{
+    return (rxBuffer->size == rxBuffer->capacity);
+}
+
+int isEmpty(struct Queue* rxBuffer)
+{
+    return (rxBuffer->size == 0);
+}
+
+void enqueue(struct Queue* rxBuffer, int item)
+{
+    if (isFull(rxBuffer))
+        return;
+    rxBuffer->rear = (rxBuffer->rear + 1)
+                  % rxBuffer->capacity;
+    rxBuffer->array[rxBuffer->rear] = item;
+    rxBuffer->size = rxBuffer->size + 1;
+}
+
+int dequeue(struct Queue* rxBuffer)
+{
+    if (isEmpty(rxBuffer))
+        return -1;
+    int item = rxBuffer->array[rxBuffer->front];
+    rxBuffer->front = (rxBuffer->front + 1)
+                   % rxBuffer->capacity;
+    rxBuffer->size = rxBuffer->size - 1;
+    return item;
+}
+
+struct Queue* rxBuffer;
 /* USER CODE END 0 */
 
 /**
@@ -74,7 +128,7 @@ char rxBuffer[25];
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+  rxBuffer = createQueue(25);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -101,7 +155,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // ** Fixed Size 1 byte
-  HAL_UART_Receive_DMA(&huart3, (uint8_t *)rxBuffer, 1);
 
 
   /* USER CODE END 2 */
@@ -111,6 +164,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  HAL_UART_Receive_DMA(&huart3, (uint8_t *)rxBuffer->array, 1);
 
     /* USER CODE BEGIN 3 */
   }
@@ -161,6 +215,52 @@ PUTCHAR_PROTOTYPE
 	HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, 0xFFFF);
 	return ch;
 }
+
+void Check_Divisibility(int num)
+{
+	/* Number divisible by 4, Print "Rightbot"
+	   * Number divisible by 7, Print "Labs"
+	   * Number divisible by 4 and 7, Print "Rightbot Pvt Ltd"
+	   * Number not divisible, Print Number
+	   */
+	if ((num & 3) ==0)
+	  {
+		  printf ("Rightbot ");
+		  if (num % 7 == 0)
+		  {
+			  printf ("Pvt Ltd");
+		  }
+	  }
+	  else if (num % 7 == 0)
+	  {
+		  printf ("Labs");
+	  }
+	  else
+	  {
+		  printf ("%d", num);
+	  }
+}
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(huart);
+  /* NOTE: This function should not be modified, when the callback is needed,
+           the HAL_UART_RxCpltCallback could be implemented in the user file
+   */
+  // TODO:CHECK CMD MSG
+  int num = dequeue(rxBuffer);
+  if (num > 0 || num < 100)
+  {
+	  Check_Divisibility(num);
+  }
+  else
+  {
+	  HAL_UART_Transmit_DMA(&huart, (uint8_t *)rxBuffer->array, 1);
+  }
+}
+
 /* USER CODE END 4 */
 
 /**
