@@ -43,6 +43,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define POLY 0x8408		//for crc16 CCITT
 
 /* USER CODE END PD */
 
@@ -67,11 +68,13 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 // TODO: Move queue code into different file.
 
+void OnBoard_Led_PWM(uint8_t number);
+
 struct Queue
 {
 	int front, rear, size;
 	unsigned capacity;
-	int* array;
+	uint8_t* array;
 };
 
 struct Queue* createQueue(unsigned capacity)
@@ -82,8 +85,8 @@ struct Queue* createQueue(unsigned capacity)
     rxBuffer->capacity = capacity;
     rxBuffer->front = rxBuffer->size = 0;
       rxBuffer->rear = capacity - 1;
-    rxBuffer->array = (int*)malloc(
-        rxBuffer->capacity * sizeof(int));
+    rxBuffer->array = (uint8_t*)malloc(
+        rxBuffer->capacity * sizeof(uint8_t));
     return rxBuffer;
 }
 
@@ -222,6 +225,34 @@ PUTCHAR_PROTOTYPE
 	return ch;
 }
 
+unsigned short crc16(char *data_p, unsigned short length)
+{
+      unsigned char i;
+      unsigned int data;
+      unsigned int crc = 0xffff;
+
+      if (length == 0)
+            return (~crc);
+
+      do
+      {
+            for (i=0, data=(unsigned int)0xff & *data_p++;
+                 i < 8;
+                 i++, data >>= 1)
+            {
+                  if ((crc & 0x0001) ^ (data & 0x0001))
+                        crc = (crc >> 1) ^ POLY;
+                  else  crc >>= 1;
+            }
+      } while (--length);
+
+      crc = ~crc;
+      data = crc;
+      crc = (crc << 8) | (data >> 8 & 0xff);
+
+      return (crc);
+}
+
 void Check_Divisibility(int num)
 {
 	/* Number divisible by 4, Print "Rightbot"
@@ -231,19 +262,26 @@ void Check_Divisibility(int num)
 	   */
 	if ((num & 3) ==0)
 	  {
-		  printf ("Rightbot ");
+		  printf ("Rightbot");
 		  if (num % 7 == 0)
 		  {
-			  printf ("Pvt Ltd");
+			  printf (" Pvt Ltd");
+			  char* data = "Rightbot Pvt Ltd";
+			  printf ("%X", crc16(data, 16));
 		  }
+		  char* data = "Rightbot";
+		  printf ("%X", crc16(data, 8));
 	  }
 	  else if (num % 7 == 0)
 	  {
 		  printf ("Labs");
+		  char* data = "Labs";
+		  printf ("%X", crc16(data, 4));
 	  }
 	  else
 	  {
 		  printf ("%d", num);
+		  printf ("%X", crc16((char *)num, 1));
 	  }
 }
 
@@ -255,19 +293,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   /* NOTE: This function should not be modified, when the callback is needed,
            the HAL_UART_RxCpltCallback could be implemented in the user file
    */
-  // TODO:CHECK CMD MSG
   num = dequeue(rxBuffer);
   if (num > 0 || num < 100)
   {
 	  Check_Divisibility(num);
+	  crc16((char *)num, 1);
+	  printf ("Received");
   }
   else
   {
-	  HAL_UART_Transmit_DMA(&huart, (uint8_t *)rxBuffer->array, 1);
+	  HAL_UART_Transmit_DMA(&huart3, (uint8_t *)rxBuffer->array, 1);
   }
 }
 
-void OnBoard_Led_PWM(int number)
+void OnBoard_Led_PWM(uint8_t number)
 {
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 	htim1.Instance->CCR1 = number;
