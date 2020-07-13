@@ -119,6 +119,8 @@ int dequeue(struct Queue* rxBuffer)
 }
 
 struct Queue* rxBuffer;
+
+int num;
 /* USER CODE END 0 */
 
 /**
@@ -165,6 +167,10 @@ int main(void)
   {
     /* USER CODE END WHILE */
 	  HAL_UART_Receive_DMA(&huart3, (uint8_t *)rxBuffer->array, 1);
+	  // TODO: crc16 check, if true send confirmation
+
+	  OnBoard_Led_PWM(num);
+
 
     /* USER CODE BEGIN 3 */
   }
@@ -250,7 +256,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
            the HAL_UART_RxCpltCallback could be implemented in the user file
    */
   // TODO:CHECK CMD MSG
-  int num = dequeue(rxBuffer);
+  num = dequeue(rxBuffer);
   if (num > 0 || num < 100)
   {
 	  Check_Divisibility(num);
@@ -259,6 +265,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   {
 	  HAL_UART_Transmit_DMA(&huart, (uint8_t *)rxBuffer->array, 1);
   }
+}
+
+void OnBoard_Led_PWM(int number)
+{
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+	htim1.Instance->CCR1 = number;
+	HAL_Delay(10000);
 }
 
 /* USER CODE END 4 */
